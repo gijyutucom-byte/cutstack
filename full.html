@@ -1,0 +1,171 @@
+<!doctype html>
+<!--
+  STL 輪郭切断スライサー「CutStack」v2.0
+  Copyright (c) 2026 Hiroyuki Muramatsu / Shinshu-u
+  https://gijyutu.com/main/
+  Released under the MIT License
+-->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STL 輪郭切断スライサー「CutStack」v2.0</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>STL 輪郭切断スライサー「CutStack」v2.0 <span class="mode-badge">フル機能版</span></h1>
+      <p>STL → スライス → 輪郭再構成 → 自動修復 → SVG / PDF出力（赤:カット線 / 青:次部品輪郭）<a href="index.html" class="mode-switch-link">▶ シンプル版に切り替え</a></p>
+    </header>
+
+    <main class="layout">
+      <aside class="panel controls">
+        <h2>設定</h2>
+
+        <div class="field">
+          <label for="fileInput">STLファイル</label>
+          <input id="fileInput" type="file" accept=".stl" />
+        </div>
+
+        <div class="field-grid">
+          <div class="field"><label for="thicknessInput">板厚 (mm)</label><input id="thicknessInput" type="number" value="3" step="0.1" min="0.1" /></div>
+          <div class="field"><label for="marginInput">部品間隔 (mm)</label><input id="marginInput" type="number" value="2" step="0.1" min="0" /></div>
+          <div class="field"><label for="sheetWidthInput">板幅 (mm)</label><input id="sheetWidthInput" type="number" value="450" step="1" min="1" /></div>
+          <div class="field"><label for="sheetHeightInput">板高さ (mm)</label><input id="sheetHeightInput" type="number" value="300" step="1" min="1" /></div>
+        </div>
+
+        <div class="field-grid">
+          <div class="field"><label for="joinTolInput">接続許容値 (mm)</label><input id="joinTolInput" type="number" value="1.8" step="0.05" min="0.01" /></div>
+          <div class="field"><label for="repairTolInput">修復許容値 (mm)</label><input id="repairTolInput" type="number" value="1.0" step="0.05" min="0" /></div>
+          <div class="field"><label for="minSegLenInput">最小線分長 (mm)</label><input id="minSegLenInput" type="number" value="0.1" step="0.05" min="0" /></div>
+          <div class="field"><label for="minOpenLenInput">最小開放輪郭長 (mm)</label><input id="minOpenLenInput" type="number" value="1.5" step="0.1" min="0" /></div>
+        </div>
+
+        <div class="field-grid">
+          <div class="field"><label><input id="showLabelsToggle" type="checkbox" checked /> 部品番号表示</label></div>
+          <div class="field"><label><input id="showNextOutlineToggle" type="checkbox" checked /> 次部品の輪郭線表示</label></div>
+        </div>
+
+        <div class="buttons">
+          <button id="runButton">スライス生成</button>
+        </div>
+
+        <div class="buttons">
+          <button id="saveAllButton" disabled>全板SVG保存</button>
+          <button id="saveAllPdfButton" disabled>全板PDF保存</button>
+        </div>
+
+        <div class="buttons">
+          <button id="prevSheetButton" disabled>前の板</button>
+          <button id="nextSheetButton" disabled>次の板</button>
+        </div>
+
+        <div class="info-box">
+          <div><strong>モデル:</strong> <span id="modelName">未読込</span></div>
+          <div><strong>寸法:</strong> <span id="modelSize">-</span></div>
+        </div>
+
+        <div id="statusBox" class="status">STLを読み込んでください。</div>
+      </aside>
+
+      <section class="panel preview-panel">
+        <div class="panel-header">
+          <h2>配置プレビュー</h2>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch swatch-red-solid"></span>カット線（現部品）</span>
+            <span class="legend-item"><span class="swatch swatch-blue-solid"></span>次部品輪郭</span>
+            <span class="legend-item"><span class="swatch swatch-blue-dash"></span>修復済み閉曲線</span>
+            <span class="legend-item"><span class="swatch swatch-red-dash"></span>開放輪郭</span>
+          </div>
+        </div>
+        <div class="zoom-controls">
+          <button id="zoomInButton">＋ 拡大</button>
+          <button id="zoomResetButton">リセット</button>
+          <button id="zoomOutButton">－ 縮小</button>
+          <span id="zoomLabel" class="zoom-label">100%</span>
+          <button id="toggle3dButton" disabled class="btn-3d">組み立て完成図</button>
+        </div>
+        <div id="previewWrap" class="svg-wrap"></div>
+        <div id="controls3d" style="display:none" class="zoom-controls">
+          <button id="show3dLessButton">－ 部品を減らす</button>
+          <span id="show3dLabel" class="zoom-label">全部品</span>
+          <button id="show3dMoreButton">＋ 部品を増やす</button>
+        </div>
+        <canvas id="canvas3d" class="canvas3d" style="display:none"></canvas>
+      </section>
+
+      <section class="panel diagnostics-panel">
+        <h2>スライス結果診断</h2>
+        <div id="improvementBox" class="improvement-box">診断結果はここに表示されます。</div>
+
+        <div class="info-box compact">
+          <div><strong>対象スライス:</strong> <span id="sliceInfo">-</span></div>
+          <div><strong>Z位置:</strong> <span id="sliceZ">-</span></div>
+          <div><strong>閉曲線数:</strong> <span id="sliceClosed">-</span></div>
+          <div><strong>開放輪郭数:</strong> <span id="sliceOpen">-</span></div>
+          <div><strong>修復済み:</strong> <span id="sliceRepaired">-</span></div>
+          <div><strong>次部品:</strong> <span id="sliceNextPart">-</span></div>
+        </div>
+
+        <div class="compare-panels">
+          <div>
+            <div class="compare-caption">修復前</div>
+            <div id="diagnosticWrapBefore" class="svg-wrap small"></div>
+          </div>
+          <div>
+            <div class="compare-caption">修復後</div>
+            <div id="diagnosticWrap" class="svg-wrap small"></div>
+          </div>
+        </div>
+
+        <div class="diag-controls">
+          <div class="buttons slice-nav">
+            <button id="prevSliceButton" disabled>◀ 前のスライス</button>
+            <button id="nextSliceButton" disabled>次のスライス ▶</button>
+          </div>
+          <div class="diag-toggles">
+            <label><input id="showCompareToggle" type="checkbox" checked /> 修復前後比較表示</label>
+            <label><input id="showScoreToggle" type="checkbox" checked /> ペア候補表示</label>
+          </div>
+        </div>
+
+        <h3 class="subhead">分岐ノード採用ペア</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ノード</th>
+                <th>採用ペア</th>
+                <th>総合</th>
+                <th>角度</th>
+                <th>距離</th>
+                <th>ギャップ</th>
+              </tr>
+            </thead>
+            <tbody id="scoreTableBody"></tbody>
+          </table>
+        </div>
+
+        <h3 class="subhead">輪郭の閉曲線チェック</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>輪郭</th>
+                <th>状態</th>
+                <th>修復</th>
+                <th>点数</th>
+                <th>端点ギャップ</th>
+              </tr>
+            </thead>
+            <tbody id="diagnosticTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

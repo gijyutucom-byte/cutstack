@@ -1,0 +1,123 @@
+<!doctype html>
+<!--
+  STL 輪郭切断スライサー「CutStack」v2.0
+  Copyright (c) 2026 Hiroyuki Muramatsu / Shinshu-u
+  https://gijyutu.com/main/
+  Released under the MIT License
+-->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STL 輪郭切断スライサー「CutStack」v2.0 シンプル版</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>STL 輪郭切断スライサー「CutStack」v2.0 <span class="mode-badge">シンプル版</span></h1>
+      <p>STLファイルを読み込んでスライス生成するだけ — STL 輪郭切断スライサー「CutStack」
+        <a href="index.html" class="mode-switch-link">▶ モード選択に戻る</a>
+        <a href="full.html" class="mode-switch-link">▶ フル機能版へ</a>
+      </p>
+    </header>
+
+    <main class="layout-simple">
+
+      <!-- 左カラム：設定 -->
+      <aside class="panel">
+        <h2>設定</h2>
+
+        <div class="field">
+          <label for="fileInput">STLファイル</label>
+          <input id="fileInput" type="file" accept=".stl" />
+        </div>
+
+        <div class="field">
+          <label for="thicknessInput">板厚 (mm)</label>
+          <input id="thicknessInput" type="number" value="3" step="0.1" min="0.1" />
+        </div>
+        <div class="field">
+          <label for="sheetWidthInput">板幅 (mm)</label>
+          <input id="sheetWidthInput" type="number" value="450" step="1" min="1" />
+        </div>
+        <div class="field">
+          <label for="sheetHeightInput">板高さ (mm)</label>
+          <input id="sheetHeightInput" type="number" value="300" step="1" min="1" />
+        </div>
+
+        <div class="buttons" style="flex-direction:column;gap:8px">
+          <button id="runButton">スライス生成</button>
+          <button id="saveAllButton" disabled>全板SVG保存</button>
+          <button id="saveAllPdfButton" disabled>全板PDF保存</button>
+        </div>
+
+        <div class="buttons">
+          <button id="prevSheetButton" disabled>◀ 前の板</button>
+          <button id="nextSheetButton" disabled>次の板 ▶</button>
+        </div>
+
+        <div class="info-box">
+          <div><strong>モデル:</strong> <span id="modelName">未読込</span></div>
+          <div><strong>寸法:</strong> <span id="modelSize">-</span></div>
+        </div>
+
+        <div id="statusBox" class="status">STLを読み込んでください。</div>
+
+        <!-- app.jsが参照する非表示の固定値要素 -->
+        <input id="marginInput"      type="hidden" value="2" />
+        <input id="joinTolInput"     type="hidden" value="1.8" />
+        <input id="repairTolInput"   type="hidden" value="1.0" />
+        <input id="minSegLenInput"   type="hidden" value="0.1" />
+        <input id="minOpenLenInput"  type="hidden" value="1.5" />
+
+        <!-- チェックボックスのダミー（チェック済み状態に固定） -->
+        <input id="showLabelsToggle"      type="checkbox" checked style="display:none" />
+        <input id="showCompareToggle"     type="checkbox" checked style="display:none" />
+        <input id="showNextOutlineToggle" type="checkbox" checked style="display:none" />
+        <input id="showScoreToggle"       type="checkbox" checked style="display:none" />
+        <div style="display:none">
+          <div id="improvementBox"></div>
+          <span id="sliceInfo"></span><span id="sliceZ"></span>
+          <span id="sliceClosed"></span><span id="sliceOpen"></span>
+          <span id="sliceRepaired"></span><span id="sliceNextPart"></span>
+          <div id="diagnosticWrapBefore"></div>
+          <div id="diagnosticWrap"></div>
+          <button id="prevSliceButton"></button>
+          <button id="nextSliceButton"></button>
+          <table><tbody id="diagnosticTableBody"></tbody></table>
+          <table><tbody id="scoreTableBody"></tbody></table>
+        </div>
+      </aside>
+
+      <!-- 右カラム：プレビュー -->
+      <section class="panel preview-panel">
+        <div class="panel-header">
+          <h2>配置プレビュー</h2>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch swatch-red-solid"></span>カット線</span>
+            <span class="legend-item"><span class="swatch swatch-blue-solid"></span>次部品輪郭</span>
+          </div>
+        </div>
+        <div class="zoom-controls">
+          <button id="zoomInButton">＋ 拡大</button>
+          <button id="zoomResetButton">リセット</button>
+          <button id="zoomOutButton">－ 縮小</button>
+          <span id="zoomLabel" class="zoom-label">100%</span>
+          <button id="toggle3dButton" disabled class="btn-3d">組み立て完成図</button>
+        </div>
+        <div id="previewWrap" class="svg-wrap"></div>
+        <div id="controls3d" style="display:none" class="zoom-controls">
+          <button id="show3dLessButton">－ 部品を減らす</button>
+          <span id="show3dLabel" class="zoom-label">全部品</span>
+          <button id="show3dMoreButton">＋ 部品を増やす</button>
+        </div>
+        <canvas id="canvas3d" class="canvas3d" style="display:none"></canvas>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
